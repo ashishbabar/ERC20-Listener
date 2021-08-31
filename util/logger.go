@@ -4,6 +4,10 @@ import "go.uber.org/zap"
 
 var Zaplogger *zap.Logger
 
+type Logger struct {
+	Logger *zap.Logger
+}
+
 func init() {
 	// TODO:Read yaml/json from config and build config object
 	// var cfg zap.Config
@@ -21,6 +25,6 @@ func init() {
 }
 
 // This will be used to set a logger with different configuration
-func SetLogger(logger *zap.Logger) {
+func New(logger *zap.Logger) {
 	Zaplogger = logger
 }

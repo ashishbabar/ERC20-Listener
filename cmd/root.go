@@ -16,12 +16,18 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/ashishbabar/erc20-listener/services"
+	"github.com/ashishbabar/erc20-listener/util"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var cfgFile string
@@ -69,11 +75,11 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		// home, err := os.UserHomeDir()
+		// cobra.CheckErr(err)
 
 		// Search config in home directory with name ".erc20-listener" (without extension).
-		viper.AddConfigPath(home)
+		viper.AddConfigPath(".")
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".erc20-listener")
 	}
@@ -86,5 +92,21 @@ func initConfig() {
 	}
 }
 func start(cmd *cobra.Command, args []string) {
-	fmt.Printf("Hello there, I am start command")
+	logger := util.Zaplogger
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	databaseClient, err := mongo.Connect(ctx, options.Client().ApplyURI(viper.GetString("database_url")))
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	dbClient := util.NewDB(databaseClient)
+
+	chainClient, err := ethclient.Dial(viper.GetString("network_url"))
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	listener := services.NewListerner(dbClient, logger, chainClient)
+
+	listener.Start(viper.GetString("contract_address"))
 }

@@ -1,9 +1,19 @@
 package util
 
-import "gorm.io/gorm"
+import (
+	"fmt"
 
-type dbClient struct {
-	DB *gorm.DB
+	"go.mongodb.org/mongo-driver/mongo"
+)
+
+type DbClient struct {
+	DB *mongo.Client
 }
 
-func NewGormDB()
+func NewDB(client *mongo.Client) *DbClient {
+	return &DbClient{client}
+}
+
+func (client *DbClient) TestFunction() {
+	fmt.Println(client)
+}

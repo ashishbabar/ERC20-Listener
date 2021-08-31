@@ -1,3 +1,0 @@
-NETWORK_ADDR= "ws://0.0.0.0:8545"
-TOKEN_ADDRESS= "ws://0.0.0.0:8545"
-DATABASE_URL= "localhost:"
