@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	token "github.com/ashishbabar/erc20-listener/contracts"
+	"github.com/ashishbabar/erc20-listener/models"
 	"github.com/ashishbabar/erc20-listener/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -75,20 +77,19 @@ func (listener *Listener) Start(contractAddress string) {
 		case err := <-sub.Err():
 			log.Fatal(err)
 		case vLog := <-logs:
-			handleEventLog(&vLog, logger, &contractAbi)
+			handleEventLog(&vLog, logger, &contractAbi, listener.dbClient)
 		}
 	}
 
 }
 
-func handleEventLog(vLog *types.Log, logger *zap.Logger, contractAbi *abi.ABI) {
+func handleEventLog(vLog *types.Log, logger *zap.Logger, contractAbi *abi.ABI, dbClient *util.DbClient) {
 
 	logger.Info("Log Block Number: " + strconv.FormatUint(uint64(vLog.BlockNumber), 10))
 	logger.Info("Log Index: " + strconv.FormatUint(uint64(vLog.Index), 10))
 
 	switch vLog.Topics[0].Hex() {
 	case transferFuncSigHash.Hex():
-		//
 		logger.Info("Received event : Transfer")
 
 		var transferEvent token.SimpleTokenTransfer
@@ -104,6 +105,13 @@ func handleEventLog(vLog *types.Log, logger *zap.Logger, contractAbi *abi.ABI) {
 		logger.Info("From: " + transferEvent.From.Hex())
 		logger.Info("To: " + transferEvent.To.Hex())
 		logger.Info("Tokens: " + transferEvent.Value.String())
+
+		collection := dbClient.DB.Database(viper.GetString("database_name")).Collection("Transfer")
+
+		var transferEventModel models.Model
+		transferEventModel = models.NewTransferEvent(transferEvent.From.Hex(), transferEvent.To.Hex(), transferEvent.Value)
+
+		transferEventModel.Store(collection, logger)
 	case approvalFunSigHash.Hex():
 		//
 	}

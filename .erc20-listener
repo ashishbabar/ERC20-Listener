@@ -1,3 +1,4 @@
 network_url: "ws://127.0.0.1:7545"
 contract_address: "0xC8Bc6bad429e6Bc1E0AC963A9A103f1643b540BE"
-database_url: "mongodb://localhost:27017"
+database_url: "mongodb://localhost:27017/?retryWrites=false"
+database_name: "ERC20"
