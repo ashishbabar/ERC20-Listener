@@ -9,7 +9,7 @@ require (
 	go.mongodb.org/mongo-driver v1.7.1
 	go.uber.org/zap v1.17.0
 	gorm.io/driver/mysql v1.1.2 // indirect
-	gorm.io/gorm v1.21.13 // indirect
+	gorm.io/gorm v1.21.13
 )
 
 replace github.com/ashishbabar/erc20-listener/contracts => ./contracts

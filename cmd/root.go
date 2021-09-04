@@ -93,19 +93,24 @@ func initConfig() {
 }
 func start(cmd *cobra.Command, args []string) {
 	logger := util.Zaplogger
+	databaseUrl := viper.GetString("database_url")
+	ethereumUrl := viper.GetString("network_url")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	databaseClient, err := mongo.Connect(ctx, options.Client().ApplyURI(viper.GetString("database_url")))
+	logger.Info("Initializing database client " + databaseUrl)
+	databaseClient, err := mongo.Connect(ctx, options.Client().ApplyURI(databaseUrl))
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
+	logger.Info("Initializing ethereum client at address " + ethereumUrl)
+	chainClient, err := ethclient.Dial(ethereumUrl)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+
 	dbClient := util.NewDB(databaseClient)
 
-	chainClient, err := ethclient.Dial(viper.GetString("network_url"))
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
 	listener := services.NewListerner(dbClient, logger, chainClient)
 
 	listener.Start(viper.GetString("contract_address"))

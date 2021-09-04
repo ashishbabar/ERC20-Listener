@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"strconv"
 	"strings"
 
 	token "github.com/ashishbabar/erc20-listener/contracts"
@@ -12,10 +13,16 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 )
+
+var transferFuncSig = []byte("Transfer(address,address,uint256)")
+var approvalFunSig = []byte("Approval(address,address,uint256)")
+var transferFuncSigHash = crypto.Keccak256Hash(transferFuncSig)
+var approvalFunSigHash = crypto.Keccak256Hash(approvalFunSig)
 
 type Listener struct {
 	dbClient  *util.DbClient
@@ -43,20 +50,13 @@ func (listener *Listener) Start(contractAddress string) {
 	logger := listener.zapLogger
 	logger.Info("Now starting listening to contract " + contractAddress)
 	contractHexAddress := common.HexToAddress(contractAddress)
-	// simpleToken, err := token.NewSimpleToken(contractHexAddress, listener.ethClient)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 	logger.Info("Preparing filter query")
 	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(6383820),
-		ToBlock:   big.NewInt(6383840),
-		Addresses: []common.Address{
-			contractHexAddress,
-		},
+		Addresses: []common.Address{contractHexAddress},
 	}
+	logs := make(chan types.Log)
 	logger.Info("Started filtering Block logs for events")
-	logs, err := listener.ethClient.FilterLogs(context.Background(), query)
+	sub, err := listener.ethClient.SubscribeFilterLogs(context.Background(), query, logs)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,41 +69,42 @@ func (listener *Listener) Start(contractAddress string) {
 	}
 
 	logger.Info("Intializing contract function signatures")
-	logTransferSig := []byte("Transfer(address,address,uint256)")
-	LogApprovalSig := []byte("Approval(address,address,uint256)")
-	logTransferSigHash := crypto.Keccak256Hash(logTransferSig)
-	logApprovalSigHash := crypto.Keccak256Hash(LogApprovalSig)
-	sugar := logger.Sugar()
-	sugar.Infow("logs", logs)
-	logger.Info("Reading logs from response")
-	for _, vLog := range logs {
 
-		sugar.Infow("Log Block Number: ", vLog.BlockNumber)
-		sugar.Infow("Log Index: %d\n", vLog.Index)
-		// fmt.Printf("Log Block Number: %d\n", vLog.BlockNumber)
-		// fmt.Printf("Log Index: %d\n", vLog.Index)
-
-		switch vLog.Topics[0].Hex() {
-		case logTransferSigHash.Hex():
-			//
-			sugar.Infow("Log Name: Transfer\n")
-			fmt.Printf("Log Name: Transfer\n")
-
-			var transferEvent LogTransfer
-
-			err := contractAbi.UnpackIntoInterface(&transferEvent, "Transfer", vLog.Data)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			transferEvent.From = common.HexToAddress(vLog.Topics[1].Hex())
-			transferEvent.To = common.HexToAddress(vLog.Topics[2].Hex())
-
-			sugar.Infow("From: %s\n", transferEvent.From.Hex())
-			sugar.Infow("To: %s\n", transferEvent.To.Hex())
-			sugar.Infow("Tokens: %s\n", transferEvent.Tokens.String())
-		case logApprovalSigHash.Hex():
-			//
+	for {
+		select {
+		case err := <-sub.Err():
+			log.Fatal(err)
+		case vLog := <-logs:
+			handleEventLog(&vLog, logger, &contractAbi)
 		}
+	}
+
+}
+
+func handleEventLog(vLog *types.Log, logger *zap.Logger, contractAbi *abi.ABI) {
+
+	logger.Info("Log Block Number: " + strconv.FormatUint(uint64(vLog.BlockNumber), 10))
+	logger.Info("Log Index: " + strconv.FormatUint(uint64(vLog.Index), 10))
+
+	switch vLog.Topics[0].Hex() {
+	case transferFuncSigHash.Hex():
+		//
+		logger.Info("Received event : Transfer")
+
+		var transferEvent token.SimpleTokenTransfer
+
+		err := contractAbi.UnpackIntoInterface(&transferEvent, "Transfer", vLog.Data)
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		transferEvent.From = common.HexToAddress(vLog.Topics[1].Hex())
+		transferEvent.To = common.HexToAddress(vLog.Topics[2].Hex())
+
+		logger.Info("From: " + transferEvent.From.Hex())
+		logger.Info("To: " + transferEvent.To.Hex())
+		logger.Info("Tokens: " + transferEvent.Value.String())
+	case approvalFunSigHash.Hex():
+		//
 	}
 }
