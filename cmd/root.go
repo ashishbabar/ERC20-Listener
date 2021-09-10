@@ -21,8 +21,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/ashishbabar/erc20-listener/models"
 	"github.com/ashishbabar/erc20-listener/services"
 	"github.com/ashishbabar/erc20-listener/util"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -75,6 +77,11 @@ func start(cmd *cobra.Command, args []string) {
 	databaseUrl := viper.GetString("database_url")
 	ethereumUrl := viper.GetString("network_url")
 	contractAddress := viper.GetString("contract_address")
+
+	var eventsToHandle models.Models
+
+	transferEventModel := models.NewTransferEvent(crypto.Keccak256Hash([]byte(viper.GetString("transfer_event_signature"))).Hex(), viper.GetString("transfer_collection_name"))
+	eventsToHandle = models.Models{transferEventModel}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -93,5 +100,5 @@ func start(cmd *cobra.Command, args []string) {
 
 	listener := services.NewListerner(dbClient, logger, chainClient)
 
-	listener.Start(contractAddress)
+	listener.Start(contractAddress, &eventsToHandle)
 }
