@@ -81,7 +81,8 @@ func start(cmd *cobra.Command, args []string) {
 	var eventsToHandle models.Models
 
 	transferEventModel := models.NewTransferEvent(crypto.Keccak256Hash([]byte(viper.GetString("transfer_event_signature"))).Hex(), viper.GetString("transfer_collection_name"))
-	eventsToHandle = models.Models{transferEventModel}
+	approveEventModel := models.NewApproveEvent(crypto.Keccak256Hash([]byte(viper.GetString("approve_event_signature"))).Hex(), viper.GetString("approve_collection_name"))
+	eventsToHandle = models.Models{transferEventModel, approveEventModel}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
