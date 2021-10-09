@@ -13,3 +13,5 @@ require (
 )
 
 replace github.com/ashishbabar/erc20-listener/contracts => ./contracts
+
+replace github.com/ashishbabar/erc20-listener/models => ./models
